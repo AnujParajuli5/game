@@ -1,0 +1,125 @@
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreDisplay = document.getElementById('score');
+const highScoreDisplay = document.getElementById('highScore');
+
+const gridSize = 20;
+const cellSize = canvas.width / gridSize;
+
+let snake = [{ x: 10, y: 10 }];
+let food = randomFoodPosition();
+let dx = 0;
+let dy = 0;
+let score = 0;
+let gameOver = false;
+let highScore = localStorage.getItem('snakeHighScore') || 0;
+highScoreDisplay.textContent = highScore;
+
+function drawCell(x, y, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+}
+
+function randomFoodPosition() {
+  let newFood;
+  do {
+    newFood = {
+      x: Math.floor(Math.random() * gridSize),
+      y: Math.floor(Math.random() * gridSize)
+    };
+  } while (snake.some(seg => seg.x === newFood.x && seg.y === newFood.y));
+  return newFood;
+}
+
+function drawGame() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawCell(food.x, food.y, 'red');
+  snake.forEach(segment => drawCell(segment.x, segment.y, 'lime'));
+
+  if (gameOver) {
+    ctx.fillStyle = "white";
+    ctx.font = "24px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`Game Over!`, canvas.width / 2, canvas.height / 2 - 10);
+    ctx.fillText(`Score: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+  }
+}
+
+function updateGame() {
+  if (dx === 0 && dy === 0 || gameOver) return;
+
+  const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+  if (head.x < 0 || head.x >= gridSize || head.y < 0 || head.y >= gridSize ||
+      snake.some(seg => seg.x === head.x && seg.y === head.y)) {
+    gameOver = true;
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('snakeHighScore', highScore);
+      highScoreDisplay.textContent = highScore;
+    }
+    return;
+  }
+
+  snake.unshift(head);
+
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    scoreDisplay.textContent = score;
+    food = randomFoodPosition();
+  } else {
+    snake.pop();
+  }
+}
+
+function resetGame() {
+  snake = [{ x: 10, y: 10 }];
+  dx = dy = 0;
+  food = randomFoodPosition();
+  score = 0;
+  gameOver = false;
+  scoreDisplay.textContent = score;
+  highScoreDisplay.textContent = highScore;
+}
+
+function changeDirection(dir) {
+  switch (dir) {
+    case 'up': if (dy !== 1) { dx = 0; dy = -1; } break;
+    case 'down': if (dy !== -1) { dx = 0; dy = 1; } break;
+    case 'left': if (dx !== 1) { dx = -1; dy = 0; } break;
+    case 'right': if (dx !== -1) { dx = 1; dy = 0; } break;
+  }
+}
+
+document.addEventListener('keydown', e => {
+  switch (e.key) {
+    case 'ArrowUp': changeDirection('up'); break;
+    case 'ArrowDown': changeDirection('down'); break;
+    case 'ArrowLeft': changeDirection('left'); break;
+    case 'ArrowRight': changeDirection('right'); break;
+  }
+});
+
+// Mobile swipe support
+let touchStartX = 0, touchStartY = 0;
+canvas.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+});
+canvas.addEventListener('touchend', e => {
+  const dxSwipe = e.changedTouches[0].clientX - touchStartX;
+  const dySwipe = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dxSwipe) > Math.abs(dySwipe)) {
+    if (dxSwipe > 0) changeDirection('right');
+    else changeDirection('left');
+  } else {
+    if (dySwipe > 0) changeDirection('down');
+    else changeDirection('up');
+  }
+});
+
+setInterval(() => {
+  updateGame();
+  drawGame();
+}, 150);
